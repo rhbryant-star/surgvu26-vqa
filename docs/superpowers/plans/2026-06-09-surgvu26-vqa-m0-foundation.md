@@ -242,15 +242,20 @@ git commit -m "feat: per-question SurgVU BLEU metric"
 
 - [ ] **Step 1: Write the failing test**
 
+> **Fixture note (discovered in Task 2 review):** BLEU-4 with method1 smoothing on a **1-token** exact match (e.g. `"No"` vs `"No"`) scores ≈0.178, NOT 1.0 — higher-order n-grams cannot fire. All fixtures that assert a score of exactly 1.0 must therefore use **4+-token sentences**.
+
 ```python
 # tests/eval/test_score.py
 from surgvu_vqa.eval.score import mean_bleu, score_run
 
+_A = "A stapler was not used."
+_B = "The suturing step is shown."
+
 
 def test_mean_bleu_averages_questions():
     items = [
-        {"prediction": "No", "references": ["No"]},
-        {"prediction": "Yes", "references": ["Yes"]},
+        {"prediction": _A, "references": [_A]},
+        {"prediction": _B, "references": [_B]},
     ]
     assert mean_bleu(items) == 1.0
 
@@ -261,10 +266,10 @@ def test_mean_bleu_empty_is_zero():
 
 def test_score_run_handles_missing_prediction():
     truth = {
-        "clip_0": {"question": "Q?", "references": ["No"]},
-        "clip_1": {"question": "Q?", "references": ["Yes"]},
+        "clip_0": {"question": "Q?", "references": [_A]},
+        "clip_1": {"question": "Q?", "references": [_B]},
     }
-    predictions = {"clip_0": "No"}  # clip_1 deliberately missing
+    predictions = {"clip_0": _A}  # clip_1 deliberately missing
     result = score_run(truth, predictions)
     assert result["per_question"]["clip_0"] == 1.0
     assert result["per_question"]["clip_1"] == 0.0
@@ -361,8 +366,10 @@ from surgvu_vqa.eval.score import main
 
 
 def test_cli_prints_mean(tmp_path, capsys):
-    truth = {"clip_0": {"question": "Q?", "references": ["No"]}}
-    predictions = {"clip_0": "No"}
+    # 4+-token answer: 1-token fixtures cannot reach BLEU 1.0 (see fixture note above).
+    answer = "A stapler was not used."
+    truth = {"clip_0": {"question": "Q?", "references": [answer]}}
+    predictions = {"clip_0": answer}
     t = tmp_path / "truth.json"
     p = tmp_path / "pred.json"
     t.write_text(json.dumps(truth))
