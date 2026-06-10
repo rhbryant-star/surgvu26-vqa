@@ -1,0 +1,19 @@
+[project]
+name = "surgvu-vqa"
+version = "0.1.0"
+description = "SurgVU 2026 Category 2 (Surgical VQA) challenge solution"
+requires-python = ">=3.9"
+dependencies = ["nltk>=3.8"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["surgvu_vqa*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
