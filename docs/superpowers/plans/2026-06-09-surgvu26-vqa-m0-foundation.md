@@ -6,7 +6,7 @@
 
 **Architecture:** A small Python package `surgvu_vqa/` with an `eval` submodule implementing the exact challenge metric (NLTK sentence BLEU, uniform 1–4-gram weights + smoothing, max over the 5 reference answers, mean over all questions), a JSON schema for predictions/ground-truth, and a CLI. A `data/` helper downloads the public sample set and binds it into the truth schema. TDD throughout, with concrete fixtures including the real public example.
 
-**Tech Stack:** Python ≥3.10, `nltk` (BLEU), `pytest`. (Heavy deps — torch/transformers/peft/opencv — arrive in later plans.)
+**Tech Stack:** Python ≥3.9 (system interpreter on this box is 3.9.25 — the only one available; all modules use `from __future__ import annotations` so PEP-604/generic annotations stay 3.9-compatible), `nltk` (BLEU), `pytest`. (Heavy deps — torch/transformers/peft/opencv — arrive in later plans.)
 
 This plan implements the **M0 slice only** of `docs/superpowers/specs/2026-06-09-surgvu26-vqa-design.md` (spec §1 metric, §5 repo scaffold, §11 local BLEU harness). Training, container, and synthesis come in later plans.
 
@@ -50,7 +50,7 @@ This plan implements the **M0 slice only** of `docs/superpowers/specs/2026-06-09
 name = "surgvu-vqa"
 version = "0.1.0"
 description = "SurgVU 2026 Category 2 (Surgical VQA) challenge solution"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 dependencies = ["nltk>=3.8"]
 
 [project.optional-dependencies]
