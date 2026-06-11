@@ -1,0 +1,7 @@
+transformers==4.51.3
+accelerate==1.6.0
+autoawq==0.2.9
+autoawq-kernels==0.0.9
+opencv-python-headless==4.11.0.86
+pillow>=10.0
+numpy<2.3
