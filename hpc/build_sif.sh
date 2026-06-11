@@ -13,6 +13,9 @@ TAG="${1:-latest}"
 SCRATCH="${_CONDOR_SCRATCH_DIR:?run via condor_submit build_sif.sub — see header}"
 export APPTAINER_TMPDIR="$SCRATCH/aptmp"
 export APPTAINER_CACHEDIR="$SCRATCH/apcache"
+# Execute-node kernels trip a seccomp bug in apptainer's unprivileged-build
+# proot path (execve mksquashfs -> EPERM); apptainer's own error points here:
+export PROOT_NO_SECCOMP=1
 mkdir -p "$APPTAINER_TMPDIR" "$APPTAINER_CACHEDIR"
 
 apptainer build --force \
