@@ -13,7 +13,7 @@ rank = (Machine == "bhaskargpu4000.chtc.wisc.edu") * 1000
 +WantStagingMount = true
 
 transfer_input_files = ../scripts/predict_samples.py, ../surgvu_vqa
-transfer_output_files = predictions.json
+transfer_output_files = predictions.json, predictions_raw.json
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
 queue

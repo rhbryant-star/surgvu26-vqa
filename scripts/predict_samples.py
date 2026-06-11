@@ -31,6 +31,7 @@ def main() -> int:
     print(f"Model loaded in {time.time() - t0:.1f}s")
 
     predictions = {}
+    raw_outputs = {}
     for case in cases:
         question = json.loads((case / f"{case.name}_question.json").read_text())
         frames = sample_frames(case / f"{case.name}.mp4")
@@ -38,9 +39,13 @@ def main() -> int:
         raw = model.answer(frames, question)
         answer = shape_answer(raw)
         predictions[case.name] = answer
+        raw_outputs[case.name] = raw
         print(f"{case.name} ({time.time() - t1:.1f}s) Q: {question!r} -> A: {answer!r}")
 
     args.out.write_text(json.dumps(predictions, indent=2))
+    # Raw (pre-shaping) outputs let shaping changes be re-scored offline
+    # without burning GPU time.
+    args.out.with_name(args.out.stem + "_raw.json").write_text(json.dumps(raw_outputs, indent=2))
     print(f"Wrote {len(predictions)} predictions to {args.out}")
     return 0
 
