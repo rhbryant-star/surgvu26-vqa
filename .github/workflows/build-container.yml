@@ -1,0 +1,66 @@
+# .github/workflows/build-container.yml
+name: build-container
+
+on:
+  workflow_dispatch:
+    inputs:
+      save_tarball:
+        description: "Also produce the GC upload tarball (docker save) as an artifact"
+        type: boolean
+        default: false
+  push:
+    tags: ["v*"]
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/surgvu26-vqa-cat2
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space (image + save need ~25 GB)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h /
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image
+        run: DOCKER_IMAGE_TAG="$IMAGE:${GITHUB_SHA::12}" ./container/do_build.sh
+
+      - name: Smoke test (fake model, no network)
+        run: |
+          DOCKER_IMAGE_TAG="$IMAGE:${GITHUB_SHA::12}" SURGVU_FAKE_MODEL=1 ./container/do_test_run.sh
+          cat container/test/output/interf0/visual-context-response.json
+          python -c "import json,sys; out=json.load(open('container/test/output/interf0/visual-context-response.json')); assert isinstance(out,str) and out, out; print('smoke OK:', out)"
+
+      - name: Push image
+        run: |
+          docker tag "$IMAGE:${GITHUB_SHA::12}" "$IMAGE:latest"
+          docker push "$IMAGE:${GITHUB_SHA::12}"
+          docker push "$IMAGE:latest"
+
+      - name: Save GC upload tarball
+        if: ${{ inputs.save_tarball }}
+        run: |
+          docker save "$IMAGE:${GITHUB_SHA::12}" | gzip -c > surgvu26-vqa-cat2.tar.gz
+          ls -lh surgvu26-vqa-cat2.tar.gz
+
+      - name: Upload tarball artifact
+        if: ${{ inputs.save_tarball }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: surgvu26-vqa-cat2-image
+          path: surgvu26-vqa-cat2.tar.gz
+          retention-days: 2
