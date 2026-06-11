@@ -36,10 +36,17 @@ else
   echo "WARNING: awq_ext missing — pure-torch fallback (slow); investigate before T4 submission"
 fi
 
+# During iteration the repo's surgvu_vqa (transferred by the .sub) is bound
+# over the baked copy so code fixes don't wait on an image rebuild. For the
+# FINAL pre-submission rehearsal, comment the surgvu_vqa bind out to test the
+# pure image exactly as Grand Challenge will run it.
+CODE_BIND=""
+[ -d surgvu_vqa ] && CODE_BIND=",$(pwd)/surgvu_vqa:/opt/app/surgvu_vqa:ro"
+
 # (/usr/bin/time is absent on the EL9 nodes; inference.py prints its own
 # load/generate timings and CUDA peak, which is everything Step 3 consumes.)
 apptainer run --nv --containall $NETFLAGS \
-  --bind "$(pwd)/input:/input:ro,$(pwd)/output:/output,$(pwd)/model:/opt/ml/model:ro" \
+  --bind "$(pwd)/input:/input:ro,$(pwd)/output:/output,$(pwd)/model:/opt/ml/model:ro$CODE_BIND" \
   "$STG/surgvu26-vqa-cat2-current.sif" 2>&1 | tee rehearsal_log.txt
 
 echo "===== RESULT ====="

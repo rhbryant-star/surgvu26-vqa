@@ -39,17 +39,30 @@ class QwenVqa:
 
     def __init__(self, model_path: str | None = None):
         import torch
-        from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
+        from transformers import AutoProcessor, AwqConfig, Qwen2_5_VLForConditionalGeneration
 
         path = model_path or resolve_model_path()
         self._processor = AutoProcessor.from_pretrained(
             path, min_pixels=MIN_PIXELS, max_pixels=MAX_PIXELS
+        )
+        # The official AWQ checkpoint stores lm_head.weight in fp16 (it is NOT
+        # quantized) but its quantization_config only excludes ["visual"], so
+        # transformers' AWQ integration wraps lm_head as a quantized linear and
+        # the kernel gets fp16 where it expects packed int32 ("expected scalar
+        # type Int but found Half"). Excluding lm_head here keeps it nn.Linear.
+        quant_cfg = AwqConfig(
+            bits=4,
+            group_size=128,
+            zero_point=True,
+            version="gemm",
+            modules_to_not_convert=["visual", "lm_head"],
         )
         self._model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             path,
             torch_dtype=torch.float16,
             device_map="auto",
             attn_implementation="sdpa",
+            quantization_config=quant_cfg,
         )
         self._model.eval()
 
