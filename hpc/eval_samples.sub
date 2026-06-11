@@ -1,0 +1,18 @@
+universe = vanilla
+executable = eval_samples.sh
+log    = eval_$(Cluster).log
+output = eval_$(Cluster).out
+error  = eval_$(Cluster).err
+
+request_cpus = 4
+request_memory = 32GB
+request_disk = 40GB
+request_gpus = 1
+requirements = (CUDAGlobalMemoryMb >= 15000)
++WantStagingMount = true
+
+transfer_input_files = ../scripts/predict_samples.py, ../surgvu_vqa
+transfer_output_files = predictions.json
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT
+queue

@@ -1,0 +1,18 @@
+universe = vanilla
+executable = rehearse_container.sh
+arguments = case122
+log    = rehearse_$(Cluster).log
+output = rehearse_$(Cluster).out
+error  = rehearse_$(Cluster).err
+
+request_cpus = 4
+request_memory = 32GB
+request_disk = 40GB
+request_gpus = 1
+requirements = (CUDAGlobalMemoryMb >= 15000)
++WantStagingMount = true
+
+transfer_output_files = output, rehearsal_log.txt
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT
+queue
