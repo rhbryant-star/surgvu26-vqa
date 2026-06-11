@@ -13,12 +13,13 @@ TAG="${1:-latest}"
 SCRATCH="${_CONDOR_SCRATCH_DIR:?run via condor_submit build_sif.sub — see header}"
 export APPTAINER_TMPDIR="$SCRATCH/aptmp"
 export APPTAINER_CACHEDIR="$SCRATCH/apcache"
-# Execute-node kernels trip a seccomp bug in apptainer's unprivileged-build
-# proot path (execve mksquashfs -> EPERM); apptainer's own error points here:
-export PROOT_NO_SECCOMP=1
 mkdir -p "$APPTAINER_TMPDIR" "$APPTAINER_CACHEDIR"
 
-apptainer build --force \
+# `pull`, not `build`: build's unprivileged path needs proot for root
+# emulation, and proot is broken on these execute nodes (no user namespaces,
+# seccomp/loader failures). pull converts OCI->SIF as the calling user with
+# no proot involvement — sufficient since there is no %post to execute.
+apptainer pull --force \
   "surgvu26-vqa-cat2-${TAG}.sif" \
   "docker://ghcr.io/rhbryant-star/surgvu26-vqa-cat2:${TAG}"
 
