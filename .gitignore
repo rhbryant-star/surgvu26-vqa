@@ -11,3 +11,7 @@ container/test/output/
 container/test/input/interf_real/
 *.sif
 *.tar
+hpc/*.log
+hpc/*.out
+hpc/*.err
+hpc/predictions.json
