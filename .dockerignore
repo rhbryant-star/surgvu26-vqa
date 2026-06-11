@@ -1,0 +1,13 @@
+.git
+.venv
+data
+docs
+reference
+tests
+container/test
+container/model
+*.zip
+*.tar
+*.sif
+**/__pycache__
+**/*.pyc
