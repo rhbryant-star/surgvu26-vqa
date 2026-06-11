@@ -51,6 +51,30 @@ jobs:
           docker push "$IMAGE:${GITHUB_SHA::12}"
           docker push "$IMAGE:latest"
 
+      - name: Install apptainer
+        run: |
+          wget -q https://github.com/apptainer/apptainer/releases/download/v1.3.6/apptainer_1.3.6_amd64.deb
+          sudo apt-get install -y ./apptainer_1.3.6_amd64.deb
+          apptainer --version
+
+      # Built here AS ROOT because CHTC execute/submit nodes cannot do the
+      # unprivileged OCI->SIF conversion (proot is broken there: seccomp and
+      # loader failures; no user namespaces). /mnt is the runner's big temp disk.
+      - name: Build SIF
+        run: |
+          sudo mkdir -p /mnt/aptmp /mnt/apcache
+          sudo APPTAINER_TMPDIR=/mnt/aptmp APPTAINER_CACHEDIR=/mnt/apcache \
+            apptainer build surgvu26-vqa-cat2-latest.sif "docker-daemon://$IMAGE:${GITHUB_SHA::12}"
+          ls -lh surgvu26-vqa-cat2-latest.sif
+
+      - name: Upload SIF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: surgvu26-vqa-cat2-sif
+          path: surgvu26-vqa-cat2-latest.sif
+          retention-days: 2
+          compression-level: 0
+
       - name: Save GC upload tarball
         if: ${{ inputs.save_tarball }}
         run: |
