@@ -69,7 +69,7 @@ The **question router** makes the staged plan incremental: in Cycle 1 it is a no
 
 ## 5. Project structure
 
-Standalone repo. During development/training it **imports** OpScribe's VLM core (`opscribe_pipeline/providers/vlm/{base,qwen_vl,factory}.py` + `opscribe_pipeline/models/`). For the offline container it **vendors a pinned copy** of just those minimal modules — the container must be self-contained with no internet. We deliberately do **not** fork or carry the heavy OpScribe package (graph / synthesis / billing / RAG).
+Standalone repo. During development/training it **imports** OpScribe's VLM core (`opscribe_pipeline/providers/vlm/{base,qwen_vl,factory}.py` + `opscribe_pipeline/models/`) as reference patterns. For the offline container, the inference logic lives in this repo's own package (`surgvu_vqa/predict/` — a small, purpose-built module **patterned on** `qwen_vl.py`'s loading/prompting conventions) and the package is copied into the image — self-contained, no internet, no OpScribe dead weight (graph / synthesis / billing / RAG). *(Amended 2026-06-10 during M1 planning: a purpose-built module replaces verbatim vendoring — the provider's multi-model/locking/JSON-extract machinery is dead weight in an offline container where simplicity = reliability.)*
 
 ```
 surgvu26-vqa/
@@ -135,7 +135,7 @@ Decisions:
 
 - **Ship weights as a GC model tarball → `/opt/ml/model`** (thin image, sidesteps any image-size ceiling). 7B 4-bit ≈ 5–8 GB.
 - **🔴 Disable Flash-Attention on T4** — Turing doesn't support FA2; make the attention backend **conditional** (`sdpa`/eager on T4). OpScribe's default FA2 path would crash the container.
-- **Pre-fetch at build time** (build has internet; runtime does not): code + processor/config go **in the image**, the **merged 7B weights go via the model-tarball** (`/opt/ml/model`). Default to **bnb 4-bit** (matches OpScribe's 72B 4-bit path); keep an fp16 path if A10G is granted.
+- **Pre-fetch at build time** (build has internet; runtime does not): code + processor/config go **in the image**, the **7B weights go via the model-tarball** (`/opt/ml/model`). Quantization: **official pre-quantized `Qwen/Qwen2.5-VL-7B-Instruct-AWQ` is primary** — *(amended 2026-06-10 during M1 planning; originally "default to bnb 4-bit")* — because it's ~7 GB on disk, loads fast (no quantize-at-load step eating the time limit), and AWQ kernels support T4 (compute capability 7.5, the minimum). **bnb 4-bit on the base fp16 model is the fallback** if AWQ tooling misbehaves; fp16 full-precision if A10G is granted.
 
 ## 11. Testing & evaluation
 
