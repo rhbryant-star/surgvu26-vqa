@@ -24,23 +24,28 @@ SYSTEM_PROMPT = (
 # tool classes, so even verbatim leakage cannot name a wrong challenge tool.
 YESNO_INSTRUCTION = (
     "Answer with one short declarative sentence that starts with Yes or No "
-    "and restates the question. For example, if asked whether a scalpel was "
-    'used, answer "No, a scalpel was not used." or "Yes, a scalpel was used." '
+    "and restates the question as a statement, never as a question. For "
+    "example, if asked whether a scalpel was used, answer "
+    '"No, a scalpel was not used." or "Yes, a scalpel was used." '
     "Do not add explanations."
 )
 
-# Identification/open questions: no concrete example — v1's example sentence
-# ("The forceps type is ...") was copied verbatim into unrelated answers.
+# Identification/open questions: v2 showed bare noun-phrase answers ("The
+# stomach.") score near zero, while a subject-restating sentence pattern
+# scores high. The example object (marking pen / blue) is deliberately not a
+# challenge tool class, so structural leakage cannot name a wrong tool.
 IDENTIFY_INSTRUCTION = (
-    "Answer with one short declarative sentence that names the answer and "
-    "restates the subject of the question. Never answer with a single word. "
+    "Answer with one short declarative sentence that restates the subject of "
+    "the question and then names the answer. For example, if asked "
+    '"What color is the marking pen?", answer "The marking pen color is '
+    'blue." Never answer with a single word or a bare name. '
     "Do not add explanations."
 )
 
 GENERIC_INSTRUCTION = (
     "Answer with exactly one short declarative sentence that restates the "
-    "subject of the question. Never answer with a single word. "
-    "Do not add explanations."
+    "subject of the question and states the answer. Never answer with a "
+    "single word. Do not add explanations."
 )
 
 FALLBACK_ANSWER = "The answer is not visible in the clip."
