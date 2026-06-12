@@ -17,3 +17,4 @@ hpc/*.err
 hpc/predictions.json
 hpc/output/
 hpc/rehearsal_log.txt
+hpc/predictions_*.json
