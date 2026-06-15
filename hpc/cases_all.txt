@@ -21,7 +21,6 @@ case_059
 case_062
 case_065
 case_068
-case_071
 case_074
 case_077
 case_083
