@@ -12,6 +12,39 @@ Implements spec §7 (training-data synthesis) + §8 (model & fine-tuning) of `do
 
 ---
 
+## POST-CRITIQUE REVISIONS (2026-06-12) — these OVERRIDE the original task text below
+
+A 3-lens adversarial review + direct empirical probing corrected several assumptions. Apply ALL of these when executing:
+
+### Verified facts (empirically confirmed — supersede the assumptions in the body)
+- **🔑 Video/label/frame mapping is CORRECT as designed** (the critique's "Critical part-mapping" worry was a false alarm). Probed: `case_122/case_122_video_part_001.mp4` = **60 fps, 502,947 frames, 8382 s** — *exactly* the label part-1 max time. So **label time = seconds into `case_NNN_video_part_{part:03d}.mp4` at the file's own fps**. Distribution: all 155 cases have video; **30 cases = 1 part, 125 = 2 parts**; physical part numbers match label parts (1,2). `_extract_frames` using `cap.get(CAP_PROP_FPS)` + `int(time_s*fps)` is right. DELETE the body's "a few minutes" / part-span hedging.
+- **Open-ended cross-part intervals are now boundable:** a part's true duration = `frame_count/fps` of its mp4. Bound any `end_s=None` interval to the part duration (Task 4 knows it after opening the video); never +inf in the dataset. Keep the `tools_in_window` +inf only as a pre-video fallback in `labels.py`, but the builder must clamp.
+
+### Confirmed fixes (each was reproduced against real data)
+1. **tasks.csv ≠ tools.csv format.** Real tasks header: `index,start_part,start_time,stop_part,stop_time,groundtruth_taskname`; **`start_time`/`stop_time` are BARE FLOAT SECONDS** (e.g. `699.61`), task column is **`groundtruth_taskname`**. tools.csv keeps HH:MM:SS + the columns in the body. → `labels.py`: parse task times with `float(text)`, NOT `parse_time_s`; set `TASK_COLS["task"]="groundtruth_taskname"`. Fix BOTH test fixtures to the real header/format (the body's fixtures encode fiction and pass green while real data crashes).
+2. **Filter tools to the 12 challenge classes.** Real `groundtruth_toolname` includes `nan(camera in)` (1449 rows), blanks (144), and non-class tools (`suction irrigator`, `synchroseal`, `bipolar dissector`, `tenaculum forceps`, `curved scissors`, `potts scissors`, `crocodile grasper`, `30° Endoscope`). `tools_in_window` (or synthesis) must drop anything whose stripped/lowercased groundtruth ∉ `ALL_GROUNDTRUTH_TOOLS`. Add a test with `nan(camera in)`+blank asserting neither appears in any QA pair.
+3. **Dedup tool rows** by groundtruth name before positive sampling (case_122 has exact duplicate rows). Sample positives from unique present names, not the raw row list. Test: duplicate rows → no tool appears as two positives.
+4. **Drop empty/unknown task segments.** 12 task rows have empty `groundtruth_taskname` (incl. VAL case_140 row 0). In `labels.py`/`clip_plan`, drop empty-named intervals and restrict to the 8 step classes. **Use the REAL sentence-case** everywhere (positive + negative pools): `Suturing, Uterine horn, Suspensory ligaments, Rectal artery/vein, Skills application, Range of motion, Retraction and collision avoidance, Other` (body used Title Case — wrong).
+5. **Exclude `.ipynb_checkpoints/` and `__MACOSX/`** when enumerating case dirs (23 cases have checkpoint dirs in the labels zip).
+6. **`cases_all.txt`:** add explicit step `cat hpc/cases_train.txt hpc/cases_val.txt > hpc/cases_all.txt`.
+7. **HTCondor flattens transferred basenames:** a transferred `../scripts/build_case_dataset.py` lands as `./build_case_dataset.py`; a dir `../surgvu_vqa` lands as `./surgvu_vqa`. Every wrapper must invoke the flattened path (or `mkdir -p scripts && mv`). Same for the yaml in the train job.
+8. **Validate which_tools/task answer styles** against the 11 public sample answers before mass-gen; if those question types are absent from the public set, weight them low and note the uncertainty (don't let an unvalidated phrasing dominate and regress 0.5141).
+9. Test hygiene: fix the tautological `endswith('.') or r['answer']` assertion (Task 4) and the wrong `t0.commercial` disjunct (Task 1). (Determinism via `hash()` of an all-int tuple is SAFE — verified; no change needed.)
+10. Add a check that the LLaMA-Factory `qwen2_vl` template renders the same prompt (modulo pixels) as `model.py`'s `apply_chat_template` path (8 leading `<image>` convention).
+
+### 🔴 Training-environment decision (supersedes Tasks 7–9 "reuse phase-detector recipe")
+- **opscribe.sif is NOT usable for M2.** Its venv drifted to **torch 2.10.0 / transformers 5.1.0 / tokenizers 0.22 / accelerate 1.12**; **peft, datasets, pyarrow, trl, llamafactory, bitsandbytes, autoawq are all MISSING**; and `$GROUP/pypackages.tar.gz` is an **empty 512-byte placeholder**. transformers 5.1 breaks both LLaMA-Factory 0.9.3 (needs 4.50.x) and the AWQ tooling (needs ≤4.51.3).
+- **DECISION (user-approved): build dedicated, version-pinned CI containers** via the proven inference CI→GHCR→SIF→`fetch_sif.sh` path. Two single-purpose images (clean deps, no conflicts):
+  - **`surgvu26-train`** — CUDA torch + LLaMA-Factory 0.9.3 stack pinned: `transformers==4.50.3, tokenizers==0.21.0, peft==0.15.2, trl==0.9.6, accelerate==1.7.0, datasets==3.5.0, llamafactory[torch,metrics]==0.9.3`. Train job runs **inside this SIF** (container universe OR `apptainer exec --nv`), NOT bare vanilla.
+  - **`surgvu26-quant`** — the inference image base + `transformers==4.51.3, autoawq==0.2.9, autoawq-kernels==0.0.9, peft==0.15.2` (AutoAWQ's last-tested combo). Quantize job runs inside this SIF. (LoRA adapter safetensors are portable across tf 4.50/4.51.)
+- **Build/run jobs (build_dataset, train, quantize) all need a real interpreter** — every M2 `.sub` is container-universe-with-SIF or `apptainer exec <SIF>`; NONE run python on a bare node. The dataset-build job can `apptainer exec` the inference SIF (has cv2/pillow/numpy) + a pure-python `remotezip` on `PYTHONPATH` (pure-python is fine on noexec scratch; only `.so` can't load there).
+- New plan tasks: **Task 0a** build `surgvu26-train` SIF (CI, mirrors M1 Task 6–7 + fetch_sif), **Task 0b** build `surgvu26-quant` SIF. These gate Tasks 7–9.
+
+### Execution order (revised)
+Pure-local TDD now (no container): **Tasks 1, 2, 3, 4, 6**. In parallel: **Task 0a/0b** container builds (CI, background). Then **Task 5** (fan-out, via inference-SIF exec) → **Task 7–8** (train in `surgvu26-train`) → **Task 9** (quantize in `surgvu26-quant`) → **Task 10** (eval/gate).
+
+---
+
 ## Environment & research facts (verified 2026-06-12 — do not re-litigate)
 
 - **Videos zip:** `https://storage.googleapis.com/isi-surgvu/surgvu24_videos_only.zip` = **344 GB — does NOT fit staging** (~314 GB free). `remotezip` verified against it: central directory reads fine; layout `surgvu24/case_NNN/case_NNN_video_part_PPP.mp4` (280 mp4s, deflate-compressed, ~0.8 GB/part; `__MACOSX/` junk present). Execute nodes have outbound HTTPS (proven by the GHCR pull in M1).
