@@ -1,0 +1,41 @@
+name: build-train-container
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space (CUDA image + SIF need ~30 GB)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h /
+
+      - name: Build training image
+        run: docker build --platform=linux/amd64 -f container-train/Dockerfile -t surgvu26-train:latest container-train
+
+      - name: Install apptainer
+        run: |
+          wget -q https://github.com/apptainer/apptainer/releases/download/v1.3.6/apptainer_1.3.6_amd64.deb
+          sudo apt-get install -y ./apptainer_1.3.6_amd64.deb
+          apptainer --version
+
+      # Built AS ROOT (CHTC nodes can't do the unprivileged OCI->SIF conversion).
+      - name: Build SIF
+        run: |
+          sudo mkdir -p /mnt/aptmp /mnt/apcache
+          sudo APPTAINER_TMPDIR=/mnt/aptmp APPTAINER_CACHEDIR=/mnt/apcache \
+            apptainer build surgvu26-train-latest.sif docker-daemon://surgvu26-train:latest
+          ls -lh surgvu26-train-latest.sif
+
+      - name: Upload SIF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: surgvu26-train-sif
+          path: surgvu26-train-latest.sif
+          retention-days: 2
+          compression-level: 0
