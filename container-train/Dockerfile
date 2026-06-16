@@ -19,11 +19,15 @@ RUN pip install --no-deps "llamafactory[torch,metrics]==0.9.3" && \
       evaluate multiprocess dill pytz python-dateutil six fsspec requests packaging \
       omegaconf "antlr4-python3-runtime==4.9.3" fire einops tyro nltk jieba rouge-chinese \
       attrs aiosignal aiohappyeyeballs async-timeout idna py-cpuinfo setuptools docstring-parser \
-      sentencepiece "opencv-python-headless" pillow "numpy<2.3" pandas
+      sentencepiece "opencv-python-headless" pillow "numpy<2.3" pandas \
+      rich matplotlib shtab
 
-# Sanity: the launcher + Qwen2.5-VL support must import at build time.
+# Sanity: import the ACTUAL training path. llamafactory.train.tuner pulls the trl
+# trainer chain (trl.trainer.dpo_trainer -> rich) that only fails at launch, so a
+# missing transitive dep fails CI here instead of wasting a GPU run.
 RUN python -c "import llamafactory, transformers, peft, trl, accelerate; \
 print('llamafactory', llamafactory.__version__, '| tf', transformers.__version__, '| peft', peft.__version__)" && \
-    python -c "from transformers import Qwen2_5_VLForConditionalGeneration; print('qwen2.5-vl OK')"
+    python -c "from transformers import Qwen2_5_VLForConditionalGeneration; print('qwen2.5-vl OK')" && \
+    python -c "import llamafactory.train.tuner; print('llamafactory training stack OK')"
 
 ENTRYPOINT ["bash"]
