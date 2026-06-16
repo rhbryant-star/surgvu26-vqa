@@ -43,7 +43,16 @@ echo "base model snapshot: $SNAP"
 sed -i "s|^model_name_or_path:.*|model_name_or_path: ${SNAP}|" finetune_surgvu_vqa.yaml
 echo "dataset_dir: $(pwd)/data" >> finetune_surgvu_vqa.yaml
 
-NGPU=$(nvidia-smi -L | wc -l)
+# nvidia-smi isn't on PATH inside the SIF (--nv binds driver libs, not the binary).
+# Count visible GPUs via torch, falling back to CUDA_VISIBLE_DEVICES.
+NGPU=$(python3 -c 'import torch; print(torch.cuda.device_count())' 2>/dev/null || true)
+if [ -z "${NGPU}" ] || [ "${NGPU}" = "0" ]; then
+  if [ -n "${CUDA_VISIBLE_DEVICES:-}" ]; then
+    NGPU=$(echo "$CUDA_VISIBLE_DEVICES" | tr ',' '\n' | grep -c .)
+  else
+    NGPU=1
+  fi
+fi
 echo "=== launching LoRA SFT on ${NGPU} GPU(s) ==="
 mkdir -p "$GROUP/adapters/surgvu_vqa_v1"
 torchrun --nproc_per_node="${NGPU}" --master_port=29501 -m llamafactory.launcher finetune_surgvu_vqa.yaml
