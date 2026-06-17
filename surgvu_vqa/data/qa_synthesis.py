@@ -55,17 +55,23 @@ _TOOL_Q = [
     "Did the surgeon use a {tool} in this clip?",
     "Was a {tool} used during the surgery?",
 ]
+# Answers use SHORT canonical restatements with NO temporal echo ("during this
+# clip" / "in this clip" / "here"). The public refs drop the temporal clause
+# even when the question carries it ("Is tissue being cut during this clip?" ->
+# "Yes, tissue is being cut."), and echoing it back dilutes the BLEU n-gram
+# overlap (empirically: case131 1.0000 -> 0.3457 with the echo). Questions keep
+# their variety — only the answer is scored. (M2 v2 fix, 2026-06-17.)
 _TOOL_YES = [
-    "Yes, a {tool} was used during this clip.",
-    "Yes, a {tool} is being used.",
-    "Yes, the surgeon used a {tool} in this clip.",
     "Yes, a {tool} was used.",
+    "Yes, a {tool} is being used.",
+    "Yes, the surgeon used a {tool}.",
+    "Yes, a {tool} was utilized.",
 ]
 _TOOL_NO = [
-    "No, a {tool} was not used during this clip.",
-    "No, a {tool} is not being used.",
-    "No, the surgeon did not use a {tool} in this clip.",
     "No, a {tool} was not used.",
+    "No, a {tool} is not being used.",
+    "No, the surgeon did not use a {tool}.",
+    "No, a {tool} was not utilized.",
 ]
 _TASK_WHAT_Q = [
     "What surgical task is being performed in this clip?",
@@ -74,12 +80,12 @@ _TASK_WHAT_Q = [
 ]
 _TASK_WHAT_A = [
     "The surgical task being performed is {task}.",
-    "The task shown here is {task}.",
+    "The task shown is {task}.",
     "The surgeon is performing {task}.",
 ]
 _TASK_YESNO_Q = ["Is {task} being performed in this clip?"]
-_TASK_YES = ["Yes, {task} is being performed in this clip."]
-_TASK_NO = ["No, {task} is not being performed in this clip."]
+_TASK_YES = ["Yes, {task} is being performed."]
+_TASK_NO = ["No, {task} is not being performed."]
 _WHICH_Q = ["Which tools are being used in this clip?"]
 _WHICH_A = ["The tools being used are {tools}."]
 

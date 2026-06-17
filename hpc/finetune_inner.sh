@@ -13,14 +13,14 @@ mkdir -p frames_root
 for t in "$STG"/datasets/surgvu_vqa_v1/*_frames.tar; do tar -xf "$t" -C frames_root; done
 echo "frames extracted: $(find frames_root -name '*.jpg' | wc -l)"
 
-echo "=== rewrite LF jsonl image paths to scratch ==="
+echo "=== rewrite LF jsonl image paths to scratch (LF_SUBDIR=${LF_SUBDIR:-lf_v2}) ==="
 mkdir -p data
-python3 - "$STG" "$(pwd)/frames_root" <<'PY'
+python3 - "$STG" "$(pwd)/frames_root" "${LF_SUBDIR:-lf_v2}" <<'PY'
 import json, os, sys
-stg, root = sys.argv[1], sys.argv[2]
+stg, root, lf = sys.argv[1], sys.argv[2], sys.argv[3]
 for split in ("train", "val"):
     with open(f"data/{split}.jsonl", "w") as out:
-        for line in open(f"{stg}/datasets/surgvu_vqa_v1/lf/{split}.jsonl"):
+        for line in open(f"{stg}/datasets/surgvu_vqa_v1/{lf}/{split}.jsonl"):
             r = json.loads(line)
             r["images"] = [os.path.join(root, p) for p in r["images"]]
             out.write(json.dumps(r) + "\n")
