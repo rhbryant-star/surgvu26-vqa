@@ -1,0 +1,35 @@
+universe = vanilla
+executable = quantize_model.sh
+log    = quant_$(Cluster).log
+output = quant_$(Cluster).out
+error  = quant_$(Cluster).err
+
+# 1 GPU: the bf16 merge runs on CPU, but AutoAWQ loads the merged model fp16 onto
+# the GPU and runs the calibration forward passes there.
+request_gpus = 1
+# 4 CPUs: the merge_and_unload folds B*A over ~28 decoder layers on CPU; the
+# default of 1 needlessly stretches the budget (mirrors eval_ft.sub).
+request_cpus = 4
+# 96GB RAM: holds the ~16GB bf16 base during the CPU merge AND tolerates the
+# AutoAWQ host-side activation buffers during quantization.
+request_memory = 96GB
+# 120GB disk: scratch holds the ~16GB merged bf16 model PLUS the ~6GB AWQ output
+# staged through the exec dir; leave generous headroom for safetensors shards.
+request_disk = 120GB
+
+# >=40GB VRAM fits the fp16 7B + AWQ calibration comfortably (T4-deploy model,
+# but quant itself wants a real card); CUDACapability >= 7.5 keeps us on Turing+
+# so the autoawq-kernels GEMM path is supported.
+requirements = (CUDAGlobalMemoryMb >= 40000) && (CUDACapability >= 7.5)
+# Prefer the group's reserved H200 box (bhaskargpu4000) when it's free.
+rank = (Machine == "bhaskargpu4000.chtc.wisc.edu") * 1000
+# Group staging (base weights + adapter + hf_cache + output) is a mounted volume,
+# not osdf-transferred — this flag makes CHTC bind it into the job.
++WantStagingMount = true
+
+# Only the quant script is transferred; everything else (SIF, base, adapter,
+# calib jsonl) is read from the bound group staging mount.
+transfer_input_files = ../scripts/merge_and_quantize.py
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT
+queue
