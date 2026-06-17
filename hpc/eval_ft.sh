@@ -19,7 +19,7 @@ run_cfg () {  # $1=output name  $2=adapter dir ("" for base control)
   apptainer exec --nv \
     --bind "${GROUP}:${GROUP},${STG}/cat2_samples:/samples:ro,$(pwd):/work" \
     --pwd /work \
-    --env "SURGVU_MODEL_DIR=${BASE},SURGVU_ADAPTER_DIR=${adapter},SURGVU_DTYPE=bfloat16,HF_HOME=${GROUP}/hf_cache,HF_HUB_OFFLINE=1,TRANSFORMERS_OFFLINE=1,PYTHONPATH=/work" \
+    --env "SURGVU_MODEL_DIR=${BASE},SURGVU_ADAPTER_DIR=${adapter},SURGVU_DTYPE=bfloat16,HF_HOME=${GROUP}/hf_cache,HF_HUB_OFFLINE=1,TRANSFORMERS_OFFLINE=1,PYTHONPATH=/work,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True" \
     "${SIF}" python /work/predict_samples.py --samples-dir /samples --out "/work/predictions_${name}.json"
 }
 

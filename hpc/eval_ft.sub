@@ -8,8 +8,9 @@ request_cpus = 4
 request_memory = 48GB
 request_disk = 30GB
 request_gpus = 1
-# bf16 7B (~16 GB) + 8-frame vision; any big GPU works, prefer bhaskar (priority).
-requirements = (CUDAGlobalMemoryMb >= 40000)
+# bf16 7B (~16 GB weights) + the non-flash vision-tower attention burst (~14 GB
+# for 8 frames) OOMs a 40 GB A100 — require a >=70 GB GPU (H200, bhaskar priority).
+requirements = (CUDAGlobalMemoryMb >= 70000)
 rank = (Machine == "bhaskargpu4000.chtc.wisc.edu") * 1000
 +WantStagingMount = true
 
