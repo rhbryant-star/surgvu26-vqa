@@ -16,6 +16,12 @@ from surgvu_vqa.predict.answer import SYSTEM_PROMPT, build_user_text
 HF_MODEL_ID = "Qwen/Qwen2.5-VL-7B-Instruct-AWQ"
 TARBALL_MODEL_DIR = Path("/opt/ml/model/qwen2.5-vl-7b-awq")
 MODEL_DIR_ENV = "SURGVU_MODEL_DIR"
+# Eval-only knobs (unset in the deployed AWQ container → behavior unchanged).
+# SURGVU_ADAPTER_DIR: load a LoRA adapter on the bf16 base — the plan's
+# "bridge path A", which measures the fine-tune WITHOUT quantization.
+# SURGVU_DTYPE: "bfloat16" loads the non-AWQ bf16 base; default float16 (AWQ).
+ADAPTER_DIR_ENV = "SURGVU_ADAPTER_DIR"
+DTYPE_ENV = "SURGVU_DTYPE"
 
 # Qwen2.5-VL pixel budget per frame (28x28 patches): 256-512 visual tokens.
 # Sized for 8 frames on a 16 GB T4.
@@ -42,30 +48,47 @@ class QwenVqa:
         from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 
         path = model_path or resolve_model_path()
+        dtype = (
+            torch.bfloat16
+            if os.environ.get(DTYPE_ENV, "").lower() in ("bf16", "bfloat16")
+            else torch.float16
+        )
         self._processor = AutoProcessor.from_pretrained(
             path, min_pixels=MIN_PIXELS, max_pixels=MAX_PIXELS
         )
-        self._model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             path,
-            torch_dtype=torch.float16,
+            torch_dtype=dtype,
             device_map="auto",
             attn_implementation="sdpa",
         )
-        # The official AWQ checkpoint stores lm_head.weight in fp16 (NOT
-        # quantized) but its quantization_config forgets to exclude lm_head, so
-        # transformers wraps it as a quantized linear and the AWQ kernel dies
-        # with "expected scalar type Int but found Half". Passing an AwqConfig
-        # override here is IGNORED for pre-quantized checkpoints, so the fix
-        # lives in the checkpoint itself: hpc/fetch_weights.sh patches
-        # modules_to_not_convert to ["visual", "lm_head"] before tarballing.
-        # This guard catches an unpatched checkpoint at load time, not mid-answer.
-        head_cls = type(self._model.lm_head).__name__
-        if "WQLinear" in head_cls:
-            raise RuntimeError(
-                f"lm_head was AWQ-wrapped ({head_cls}): the checkpoint's "
-                'quantization_config.modules_to_not_convert is missing "lm_head" '
-                "— re-run hpc/fetch_weights.sh to patch and re-tar the weights."
-            )
+        adapter = os.environ.get(ADAPTER_DIR_ENV, "")
+        if adapter:
+            # Eval/bridge path: fine-tuned LoRA on the bf16 base. The AWQ
+            # lm_head guard below applies only to the pre-quantized AWQ
+            # checkpoint, so it is skipped here.
+            from peft import PeftModel
+
+            model = PeftModel.from_pretrained(model, adapter)
+        else:
+            # The official AWQ checkpoint stores lm_head.weight in fp16 (NOT
+            # quantized) but its quantization_config forgets to exclude lm_head,
+            # so transformers wraps it as a quantized linear and the AWQ kernel
+            # dies with "expected scalar type Int but found Half". Passing an
+            # AwqConfig override here is IGNORED for pre-quantized checkpoints,
+            # so the fix lives in the checkpoint itself: hpc/fetch_weights.sh
+            # patches modules_to_not_convert to ["visual", "lm_head"] before
+            # tarballing. This guard catches an unpatched checkpoint at load
+            # time, not mid-answer.
+            head_cls = type(model.lm_head).__name__
+            if "WQLinear" in head_cls:
+                raise RuntimeError(
+                    f"lm_head was AWQ-wrapped ({head_cls}): the checkpoint's "
+                    'quantization_config.modules_to_not_convert is missing '
+                    '"lm_head" — re-run hpc/fetch_weights.sh to patch and '
+                    "re-tar the weights."
+                )
+        self._model = model
         self._model.eval()
 
     def answer(self, frames, question: str) -> str:
