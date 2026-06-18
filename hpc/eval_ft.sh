@@ -9,7 +9,7 @@ STG=/staging/groups/bhaskar_opscribe/surgvu26
 GROUP=/staging/groups/bhaskar_opscribe
 SIF="$STG/surgvu26-train.sif"
 BASE=$(find "$GROUP/hf_cache/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/snapshots" -maxdepth 1 -mindepth 1 -type d | head -1)
-ADAPTER="$GROUP/adapters/surgvu_vqa_v1"
+ADAPTER="$GROUP/adapters/surgvu_vqa_v2"
 echo "base snapshot: $BASE"
 echo "adapter:       $ADAPTER"
 
@@ -24,7 +24,7 @@ run_cfg () {  # $1=output name  $2=adapter dir ("" for base control)
 }
 
 run_cfg base_bf16 ""
-run_cfg ft_bf16 "${ADAPTER}"
+run_cfg ft_v2_bf16 "${ADAPTER}"
 
 echo "===== predictions_base_bf16.json ====="; cat predictions_base_bf16.json
-echo "===== predictions_ft_bf16.json ====="; cat predictions_ft_bf16.json
+echo "===== predictions_ft_v2_bf16.json ====="; cat predictions_ft_v2_bf16.json
