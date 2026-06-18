@@ -22,7 +22,13 @@ BASE=$(find "$GROUP/hf_cache/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/snapshots"
 ADAPTER="${ADAPTER:-$GROUP/adapters/surgvu_vqa_v2}"          # PEFT LoRA to merge
 CALIB="${CALIB:-$STG/datasets/surgvu_vqa_v1/lf_v2/train.jsonl}"  # text-only calib (match adapter's style!)
 MODEL_TAG="${MODEL_TAG:-surgvu-v2}"
-OUT="$STG/models/qwen25vl7b-${MODEL_TAG}-awq"               # AWQ model lands here on staging
+# AWQ model dir -> JOB SCRATCH (/work), NOT staging: group staging sits near its
+# 10k-file ceph quota and only the single tarball needs to persist (the ~15-file
+# model dir would otherwise blow the file quota — observed: save_quantized mkdir
+# failed with Errno 122). The host sees this same dir at $(pwd)/awq_out (bind),
+# which the post-exec tar reads.
+OUT="/work/awq_out"
+OUT_HOST="$(pwd)/awq_out"
 TARBALL="$STG/tarballs/qwen25vl7b-${MODEL_TAG}-awq-model.tar.gz"
 
 # Merge to JOB SCRATCH bound at /work (NOT host $(pwd): this script is the condor
@@ -35,13 +41,12 @@ echo "base snapshot : $BASE"
 echo "adapter       : $ADAPTER"
 echo "calib jsonl   : $CALIB"
 echo "merged (scratch): $MERGED"
-echo "out (staging) : $OUT"
+echo "out (scratch) : $OUT  (host: $OUT_HOST)"
+echo "tarball (staging): $TARBALL"
 
-mkdir -p "$STG/models" "$STG/tarballs"
-# Clear any prior AWQ output: save_quantized overwrites model.safetensors but NOT
-# orphaned shards from a run with a different shard count — those would bloat the
-# tarball and confuse the index. Start clean.
-rm -rf "$OUT"
+mkdir -p "$STG/tarballs"
+# Clear any prior scratch output (fresh exec dir, but be explicit).
+rm -rf "$OUT_HOST"
 
 # apptainer exec the quant SIF with GPUs:
 #   --nv             : bind the host CUDA driver libs (H200)
@@ -68,11 +73,14 @@ apptainer exec --nv \
 # the archive's single top-level dir is 'qwen2.5-vl-7b-awq' (matching v0), even
 # though the on-disk dir is qwen25vl7b-surgvu-v1-awq. --transform rewrites the
 # leading path component during archiving.
+# tar runs on the HOST after apptainer exec, so read the scratch dir at its HOST
+# path ($(pwd)/awq_out). --transform rewrites the archive root to qwen2.5-vl-7b-awq
+# (matching v0 so the container's TARBALL_MODEL_DIR works unchanged).
 echo "Building model tarball (top-level dir = qwen2.5-vl-7b-awq)..."
 tar -czf "$TARBALL" \
-  -C "$(dirname "$OUT")" \
-  --transform "s,^$(basename "$OUT"),qwen2.5-vl-7b-awq," \
-  "$(basename "$OUT")"
+  -C "$(pwd)" \
+  --transform "s,^awq_out,qwen2.5-vl-7b-awq," \
+  awq_out
 
 echo "=== tarball ==="
 ls -lh "$TARBALL"
