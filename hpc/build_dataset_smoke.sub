@@ -1,0 +1,16 @@
+universe = vanilla
+executable = build_dataset.sh
+arguments = case_001
+log    = build_ds_$(Cluster).log
+output = build_ds_$(Cluster).out
+error  = build_ds_$(Cluster).err
+
+request_cpus = 2
+request_memory = 8GB
+request_disk = 50GB
++WantStagingMount = true
+
+transfer_input_files = ../scripts/build_case_dataset.py, ../surgvu_vqa
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT
+queue

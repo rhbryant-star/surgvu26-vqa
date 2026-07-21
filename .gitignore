@@ -4,6 +4,8 @@ __pycache__/
 .venv/
 *.egg-info/
 data/raw/
+data/regen_qa/
+data/regen_lf/
 *.zip
 nltk_data/
 container/model/

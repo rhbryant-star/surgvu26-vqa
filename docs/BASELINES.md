@@ -6,6 +6,9 @@
 | 2026-06-11 | M1: Qwen2.5-VL-7B-AWQ, 8 frames, prompt v1, greedy | 0.1881 | image `ghcr.io/rhbryant-star/surgvu26-vqa-cat2` @ branch m1-baseline-container; eval job 7653222 (H200, ~2.7 s/clip generate; rehearsal: 8.01 GiB CUDA peak, 64 s/case total incl. 47 s load) |
 | 2026-06-11 | v2: type-routed prompts + single-word shaping fix | 0.3167 | eval job 7653343; yes/no cases fixed (0.45–0.67), identification still terse |
 | 2026-06-12 | **v3: structural identify example + statement-form yes/no** | **0.5141** | eval job 7660269; case131 = 1.0000; predictions archived as `hpc/predictions_v3.json` |
+| 2026-06-17 | M2 v1 LoRA fine-tune (bf16) | 0.4027 | REGRESSED — training answers echoed the question's temporal clause ("during this clip"), diluting n-grams (case131 1.0→0.35) |
+| 2026-06-18 | M2 v2 LoRA fine-tune, echo-free answers (bf16) | 0.5178 | eval job 7893582; adapter `surgvu_vqa_v2`; +0.029 over base bf16 (0.4884) — correctness + style |
+| 2026-06-22 | **M2 v2 fine-tune, AWQ 4-bit (SUBMISSION)** | **0.5620** | eval job 8025498; self-quantized `qwen25vl7b-surgvu-v2-awq`; **+0.048 over v3 baseline**. AWQ > bf16 (0.5178→0.5620), same effect seen on base. case128/131 = 1.0000 |
 
 ## Per-case (M1 baseline)
 
