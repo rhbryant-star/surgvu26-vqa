@@ -74,9 +74,48 @@ def build_user_text(question: str) -> str:
     return f"{question.strip()}\n\n{style_instruction(question)}"
 
 
+# CSV step labels the model may echo verbatim from its training data. The
+# references phrase these as ordinary noun phrases, and BERTScore-F1 (the ranked
+# metric) compares embeddings against that phrasing, so emitting the CSV's
+# sentence-case mid-sentence costs real score: measured on the public set,
+# "The organ being manipulated is Uterine horn." -> 0.7577 while
+# "...is the uterine horn." -> 1.0000. Mean over the 11 clips: 0.7764 -> 0.8043.
+# Applied post-generation so it fixes the SHIPPED model without a retrain.
+_STEP_LABEL_PHRASES: dict[str, str] = {
+    "Uterine horn": "the uterine horn",
+    "Suspensory ligaments": "the suspensory ligaments",
+    "Rectal artery/vein": "the rectal artery and vein",
+    "Range of motion": "range of motion",
+    "Skills application": "skills application",
+    "Retraction and collision avoidance": "retraction and collision avoidance",
+    "Suturing": "suturing",
+}
+
+
+def naturalize_step_labels(text: str) -> str:
+    """Rewrite a CSV step label echoed mid-sentence as a natural noun phrase.
+
+    Only rewrites a label that appears AFTER the first character, so an answer
+    that legitimately begins with the label keeps its leading capital.
+    """
+    for label, phrase in _STEP_LABEL_PHRASES.items():
+        idx = text.find(label)
+        if idx > 0:
+            # "... is the uterine horn" reads wrong as "... is the the uterine
+            # horn"; drop a preceding article the model already emitted.
+            prefix = text[:idx]
+            for article in ("the ", "a ", "an "):
+                if phrase.startswith("the ") and prefix.lower().endswith(article):
+                    prefix = prefix[: -len(article)]
+                    break
+            text = prefix + phrase + text[idx + len(label):]
+    return text
+
+
 def shape_answer(raw: str) -> str:
     """Normalize a model response into one clean declarative sentence."""
     text = raw.strip().strip('"').strip("'").strip()
+    text = naturalize_step_labels(text)
     text = " ".join(text.split())
     if not text:
         return FALLBACK_ANSWER

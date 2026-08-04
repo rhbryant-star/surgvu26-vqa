@@ -72,3 +72,34 @@ def test_shape_single_word_loses_period():
 
 def test_shape_empty_returns_fallback():
     assert shape_answer("   ") == FALLBACK_ANSWER
+
+
+# --- BERTScore: naturalize CSV step labels echoed mid-sentence ---------------
+
+def test_naturalize_step_labels_midsentence():
+    from surgvu_vqa.predict.answer import shape_answer
+    # measured on the public set: 0.7577 -> 1.0000 on case127
+    assert shape_answer("The organ being manipulated is Uterine horn.") == \
+        "The organ being manipulated is the uterine horn."
+    assert shape_answer("This summary is describing Rectal artery/vein.") == \
+        "This summary is describing the rectal artery and vein."
+    assert shape_answer("The surgical task being performed is Suturing.") == \
+        "The surgical task being performed is suturing."
+
+
+def test_naturalize_does_not_double_article_or_touch_leading_label():
+    from surgvu_vqa.predict.answer import shape_answer
+    # model already emitted "the" -> must not become "the the uterine horn"
+    assert shape_answer("The structure is the Uterine horn.") == \
+        "The structure is the uterine horn."
+    # a label that legitimately starts the sentence keeps its capital
+    assert shape_answer("Uterine horn is being performed.") == \
+        "Uterine horn is being performed."
+
+
+def test_naturalize_leaves_ordinary_answers_untouched():
+    from surgvu_vqa.predict.answer import shape_answer
+    for a in ("Yes, a needle driver is involved.",
+              "No, a large needle driver was not used.",
+              "The type of forceps mentioned is Cadiere Forceps."):
+        assert shape_answer(a) == a
