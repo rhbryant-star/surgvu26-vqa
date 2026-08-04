@@ -1,0 +1,24 @@
+universe = vanilla
+executable = eval_samples.sh
+log    = evalv3awq_$(Cluster).log
+output = evalv3awq_$(Cluster).out
+error  = evalv3awq_$(Cluster).err
+
+# Eval the v3 SELF-QUANTIZED AWQ model (produced by quantize_model.sub) on the 11
+# public clips. Score the output with surgvu_vqa/eval/bertscore.py — BERTScore-F1
+# is the ranked metric, NOT BLEU.
+environment = "MODEL_TARBALL=/staging/groups/bhaskar_opscribe/surgvu26/tarballs/qwen25vl7b-surgvu-v3-awq-model.tar.gz OUT_JSON=/work/predictions_v3_awq.json"
+
+request_cpus = 4
+request_memory = 32GB
+request_disk = 40GB
+request_gpus = 1
+requirements = (CUDAGlobalMemoryMb >= 15000) && (CUDACapability >= 7.5)
+rank = (Machine == "bhaskargpu4000.chtc.wisc.edu") * 1000
++WantStagingMount = true
+
+transfer_input_files = ../scripts/predict_samples.py, ../surgvu_vqa
+transfer_output_files = predictions_v3_awq.json, predictions_v3_awq_raw.json
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT
+queue

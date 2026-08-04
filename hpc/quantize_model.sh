@@ -19,9 +19,9 @@ BASE=$(find "$GROUP/hf_cache/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/snapshots"
   -maxdepth 1 -mindepth 1 -type d | head -1)
 # Defaults target the v2 (echo-free) adapter + v2 calib corpus; override via env
 # (ADAPTER/CALIB/MODEL_TAG) to quantize a different adapter, e.g. surgvu_vqa_v1.
-ADAPTER="${ADAPTER:-$GROUP/adapters/surgvu_vqa_v2}"          # PEFT LoRA to merge
-CALIB="${CALIB:-$STG/datasets/surgvu_vqa_v1/lf_v2/train.jsonl}"  # text-only calib (match adapter's style!)
-MODEL_TAG="${MODEL_TAG:-surgvu-v2}"
+ADAPTER="${ADAPTER:-$GROUP/adapters/surgvu_vqa_v3}"          # PEFT LoRA to merge
+CALIB="${CALIB:-$STG/datasets/surgvu_vqa_v1/lf_v3/train.jsonl}"  # text-only calib (match adapter's style!)
+MODEL_TAG="${MODEL_TAG:-surgvu-v3}"
 # AWQ model dir -> JOB SCRATCH (/work), NOT staging: group staging sits near its
 # 10k-file ceph quota and only the single tarball needs to persist (the ~15-file
 # model dir would otherwise blow the file quota — observed: save_quantized mkdir

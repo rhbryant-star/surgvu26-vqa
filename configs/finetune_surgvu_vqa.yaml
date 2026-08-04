@@ -22,7 +22,7 @@ preprocessing_num_workers: 8
 dataloader_num_workers: 4
 
 ### output
-output_dir: /staging/groups/bhaskar_opscribe/adapters/surgvu_vqa_v2
+output_dir: /staging/groups/bhaskar_opscribe/adapters/surgvu_vqa_v3
 logging_steps: 10
 save_steps: 200
 save_total_limit: 2

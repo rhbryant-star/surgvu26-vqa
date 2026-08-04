@@ -13,9 +13,9 @@ mkdir -p frames_root
 for t in "$STG"/datasets/surgvu_vqa_v1/*_frames.tar; do tar -xf "$t" -C frames_root; done
 echo "frames extracted: $(find frames_root -name '*.jpg' | wc -l)"
 
-echo "=== rewrite LF jsonl image paths to scratch (LF_SUBDIR=${LF_SUBDIR:-lf_v2}) ==="
+echo "=== rewrite LF jsonl image paths to scratch (LF_SUBDIR=${LF_SUBDIR:-lf_v3}) ==="
 mkdir -p data
-python3 - "$STG" "$(pwd)/frames_root" "${LF_SUBDIR:-lf_v2}" <<'PY'
+python3 - "$STG" "$(pwd)/frames_root" "${LF_SUBDIR:-lf_v3}" <<'PY'
 import json, os, sys
 stg, root, lf = sys.argv[1], sys.argv[2], sys.argv[3]
 for split in ("train", "val"):
