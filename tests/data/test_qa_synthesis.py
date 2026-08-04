@@ -23,7 +23,9 @@ def test_generates_positive_negative_step_and_which():
     qa = synthesize_qa(_labels(), CLIP, seed=3)
     kinds = {p.kind for p in qa}
     assert {"tool_yes", "tool_no", "task_what", "task_yesno"} <= kinds
-    assert len(qa) <= 6
+    # v3 raised the budget to 9 so the added organ/purpose/procedure-type
+    # questions cannot starve the core tool/task pairs out of the cut.
+    assert len(qa) <= 9
 
 
 def test_positive_answer_is_declarative_yes():
@@ -144,3 +146,62 @@ def test_out_of_vocab_tools_not_in_positives():
     for p in positive_pairs:
         assert "suction irrigator" not in p.question.lower()
         assert "suction irrigator" not in p.answer.lower()
+
+
+# --- v3 (BERTScore) behavior -------------------------------------------------
+
+def test_task_labels_are_naturalized_not_csv_case():
+    """Answers must read '...the uterine horn.', never the CSV's 'Uterine horn'."""
+    from surgvu_vqa.data.qa_synthesis import naturalize_label
+    # Task context: lowercase only, no article ("performing uterine horn").
+    assert naturalize_label("Uterine horn") == "uterine horn"
+    assert naturalize_label("Skills application") == "skills application"
+    # Organ context: the anatomical noun phrase carries the article.
+    from surgvu_vqa.data.qa_synthesis import STEP_ANATOMY
+    assert STEP_ANATOMY["Uterine horn"] == "the uterine horn"
+    assert STEP_ANATOMY["Rectal artery/vein"] == "the rectal artery and vein"
+
+    clip = ClipSpec(part=1, start_s=30.0, end_s=60.0, task="Uterine horn")
+    labels = CaseLabels(
+        case_id="case_v3",
+        tool_intervals=[ToolInterval(part=1, start_s=0.0, end_s=300.0,
+                                     groundtruth="needle driver",
+                                     commercial="Large Needle Driver")],
+        task_intervals=[TaskInterval(part=1, start_s=0.0, end_s=300.0, task="Uterine horn")],
+    )
+    for seed in range(8):
+        for p in synthesize_qa(labels, clip, seed=seed):
+            assert "Uterine horn" not in p.answer, p.answer
+
+
+def test_v3_adds_organ_purpose_and_procedure_questions():
+    """The three question types the public set exposed as coverage gaps."""
+    clip = ClipSpec(part=1, start_s=30.0, end_s=60.0, task="Uterine horn")
+    labels = CaseLabels(
+        case_id="case_v3",
+        tool_intervals=[ToolInterval(part=1, start_s=0.0, end_s=300.0,
+                                     groundtruth="needle driver",
+                                     commercial="Large Needle Driver")],
+        task_intervals=[TaskInterval(part=1, start_s=0.0, end_s=300.0, task="Uterine horn")],
+    )
+    kinds = set()
+    for seed in range(20):
+        kinds |= {p.kind for p in synthesize_qa(labels, clip, seed=seed)}
+    assert "organ_what" in kinds
+    assert "tool_purpose" in kinds
+    assert "proc_type" in kinds
+
+
+def test_core_types_never_starved_by_v3_types():
+    """Core tool/task pairs must survive the max_pairs cut in every sample."""
+    clip = ClipSpec(part=1, start_s=30.0, end_s=60.0, task="Uterine horn")
+    labels = CaseLabels(
+        case_id="case_v3",
+        tool_intervals=[ToolInterval(part=1, start_s=0.0, end_s=300.0,
+                                     groundtruth="needle driver",
+                                     commercial="Large Needle Driver")],
+        task_intervals=[TaskInterval(part=1, start_s=0.0, end_s=300.0, task="Uterine horn")],
+    )
+    for seed in range(20):
+        kinds = {p.kind for p in synthesize_qa(labels, clip, seed=seed)}
+        assert {"tool_yes", "tool_no", "task_what", "task_yesno"} <= kinds, (seed, kinds)
